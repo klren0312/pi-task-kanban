@@ -1,6 +1,6 @@
 {
 	"name": "pi-task-kanban",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Kanban board extension for pi: todo -> in progress -> review -> done, with automatic task consumption",
 	"license": "MIT",
 	"repository": {
