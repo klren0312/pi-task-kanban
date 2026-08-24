@@ -82,6 +82,7 @@ export default function (pi: ExtensionAPI) {
 			activeTaskId = undefined;
 			const reverted = transitionTask(state, started.id, "todo", { now: Date.now() });
 			if (reverted) persistTask("update", reverted);
+			lastCtx?.ui.notify("看板: 发车消息发送失败，任务已退回待完成", "warning");
 			refreshBoard();
 		}
 	};
@@ -129,37 +130,47 @@ export default function (pi: ExtensionAPI) {
 			ctx.ui.notify("看板需要交互模式（tui）", "error");
 			return;
 		}
-		await ctx.ui.custom<void>((tui, theme, _kb, done) => {
-			board = new KanbanBoardComponent({
-				tui,
-				theme: toBoardTheme(theme),
-				done,
-				getState: () => state,
-				getBusy: () => activeTaskId !== undefined,
-				callbacks: {
-					onAdd: (title) => addAndMaybeDispatch(title),
-					onApprove: (id) => approve(id),
-					onReject: (id, note) => reject(id, note),
-					onDelete: (id) => {
-						const snapshot = allTasks(state).find((t) => t.id === id);
-						if (snapshot && deleteTask(state, id)) {
-							persistTask("delete", snapshot);
+		// 防止并发 /kanban 重复打开覆盖句柄
+		if (board) {
+			ctx.ui.notify("看板已打开", "info");
+			return;
+		}
+		try {
+			await ctx.ui.custom<void>((tui, theme, _kb, done) => {
+				board = new KanbanBoardComponent({
+					tui,
+					theme: toBoardTheme(theme),
+					done,
+					getState: () => state,
+					getBusy: () => activeTaskId !== undefined,
+					callbacks: {
+						onAdd: (title) => addAndMaybeDispatch(title),
+						onApprove: (id) => approve(id),
+						onReject: (id, note) => reject(id, note),
+						onDelete: (id) => {
+							const snapshot = allTasks(state).find((t) => t.id === id);
+							if (snapshot && deleteTask(state, id)) {
+								persistTask("delete", snapshot);
+								refreshBoard();
+							}
+						},
+						onTogglePause: () => {
+							state.paused = !state.paused;
+							persistPaused(state.paused);
 							refreshBoard();
-						}
+						},
+						onClose: () => {
+							board = undefined;
+							done();
+						},
 					},
-					onTogglePause: () => {
-						state.paused = !state.paused;
-						persistPaused(state.paused);
-						refreshBoard();
-					},
-					onClose: () => {
-						board = undefined;
-						done();
-					},
-				},
+				});
+				return board;
 			});
-			return board;
-		});
+		} finally {
+			// 无论正常关闭还是异常退出都清空句柄，避免残留引用阻塞下次打开
+			board = undefined;
+		}
 	};
 
 	pi.registerCommand("kanban", {

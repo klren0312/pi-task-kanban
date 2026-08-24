@@ -48,7 +48,11 @@ describe("prompts", () => {
 		const text = buildTaskPrompt(t);
 		expect(text).toContain("[看板任务 #1]");
 		expect(text).toContain("修复登录");
-		expect(text).toContain("待审核");
+		// 固定发车指令行全文，防止提示词被意外改动
+		const [, instruction] = text.split("\n");
+		expect(instruction).toBe(
+			"请完整实现该任务，包括必要的测试。完成后直接结束本轮，系统会自动将任务转入「待审核」。",
+		);
 	});
 
 	it("reject prompt contains note fallback when empty", () => {
