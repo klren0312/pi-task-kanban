@@ -224,7 +224,7 @@ export class KanbanBoardComponent {
 			this.mode = { kind: "normal" };
 		} else if (matchesKey(data, "backspace") || data === "\x7f" || data === "\b") {
 			mode.buffer = mode.buffer.slice(0, -1);
-		} else if (data.length === 1 && data >= " ") {
+		} else if (data.length > 0 && !/[\x00-\x1f\x7f]/.test(data)) {
 			mode.buffer += data;
 		}
 		this.deps.tui.requestRender();

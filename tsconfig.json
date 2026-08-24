@@ -9,6 +9,7 @@
 		"noEmit": true,
 		"verbatimModuleSyntax": true,
 		"isolatedModules": true,
+		"erasableSyntaxOnly": true,
 		"skipLibCheck": true
 	},
 	"include": ["src", "tests"]
