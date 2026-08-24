@@ -20,6 +20,7 @@ import {
 	STATUS_LABEL,
 	transitionTask,
 } from "./state";
+import { createAddTaskTool } from "./tools";
 
 function toBoardTheme(theme: Theme): BoardTheme {
 	return {
@@ -172,6 +173,18 @@ export default function (pi: ExtensionAPI) {
 			board = undefined;
 		}
 	};
+
+	// LLM 工具：pi 自主把任务写入看板待完成列，由消费循环串行执行
+	pi.registerTool(
+		createAddTaskTool({
+			addTask: (title) => {
+				const created = addTask(state, title, Date.now());
+				persistTask("add", created);
+				refreshBoard();
+				return created;
+			},
+		}),
+	);
 
 	pi.registerCommand("kanban", {
 		description: "看板：打开看板 / add <标题> / pause / resume / list",

@@ -15,6 +15,7 @@ Kanban board extension for [pi](https://github.com/earendil-works/pi-mono).
 ```
 
 - 你往「待完成」加任务，pi 空闲时自动串行领取执行
+- pi 也会自主入队：接到多项工作或计划分步执行时，模型通过 `add_task` 工具把任务写进看板
 - 任务完成后进入「待审核」，人工把关：通过或驳回（驳回自动带意见返工）
 - 审核是闸门：有待审核任务时流水线暂停
 - 任务随会话持久化，重启 / fork 不丢
@@ -40,6 +41,7 @@ pi -e /path/to/pi-task-kanban/src/index.ts
 | `/kanban add <标题>` | 添加任务到待完成 |
 | `/kanban pause` / `resume` | 暂停/恢复自动消费 |
 | `/kanban list` | 在对话里打印任务摘要 |
+| `add_task` 工具 | pi（LLM）自主调用，把任务加入待完成列 |
 
 看板内按键：
 
@@ -74,6 +76,7 @@ Todo → In Progress → Review → Done
 ```
 
 - Add tasks to "Todo"; pi picks them up automatically and works through them serially when idle
+- pi enqueues on its own too: when given multiple tasks or a multi-step plan, the model files each one via the `add_task` tool
 - Finished tasks enter "Review" for human approval: approve, or reject with feedback (rejection sends pi back to work automatically)
 - Review is a gate: the pipeline pauses while any task awaits review
 - Tasks are persisted per session and survive restarts and forks
@@ -99,6 +102,7 @@ pi -e /path/to/pi-task-kanban/src/index.ts
 | `/kanban add <title>` | Add a task to Todo |
 | `/kanban pause` / `resume` | Pause/resume auto-consumption |
 | `/kanban list` | Print a task summary into the conversation |
+| `add_task` tool | Called autonomously by pi (the LLM) to enqueue tasks |
 
 Board keys:
 
