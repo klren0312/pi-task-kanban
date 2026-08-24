@@ -109,7 +109,11 @@ export default function (pi: ExtensionAPI) {
 				pi.sendUserMessage(buildRejectPrompt(updated), { deliverAs: "followUp" });
 			}
 		} catch {
-			ctx?.ui.notify("看板: 返工消息发送失败，将在下一轮空闲后重试", "warning");
+			activeTaskId = undefined;
+			const reverted = transitionTask(state, updated.id, "review", { now: Date.now() });
+			if (reverted) persistTask("update", reverted);
+			ctx?.ui.notify("看板: 返工消息发送失败，任务已退回待审核", "warning");
+			refreshBoard();
 		}
 	};
 
