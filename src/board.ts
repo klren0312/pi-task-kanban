@@ -146,6 +146,9 @@ export class KanbanBoardComponent {
 			return;
 		}
 
+		// 自愈：列内容可能因通过/删除等操作而变化，先夹紧索引再处理按键
+		this.selection.cardIndex = this.clampedCardIndex();
+
 		const cols = COLUMNS.length;
 		if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c") || data === "q") {
 			this.deps.callbacks.onClose();
@@ -176,14 +179,14 @@ export class KanbanBoardComponent {
 		} else if (data === "p") {
 			this.deps.callbacks.onTogglePause();
 		}
-		this.deps.tui.requestRender();
+		this.invalidate();
 	}
 
 	render(width: number): string[] {
 		if (this.cachedWidth !== width || !this.cachedLines) {
 			this.cachedLines = renderBoardLines(
 				this.deps.getState(),
-				this.selection,
+				{ column: this.selection.column, cardIndex: this.clampedCardIndex() },
 				width,
 				this.deps.getBusy(),
 				this.deps.theme,
@@ -198,15 +201,21 @@ export class KanbanBoardComponent {
 		return columnTasks(this.deps.getState(), COLUMNS[this.selection.column].status);
 	}
 
+	// 索引可能因列内容变化而越界，读取时统一夹紧到当前列的最后一张卡片
+	private clampedCardIndex(): number {
+		const len = this.currentColumnTasks().length;
+		return Math.min(this.selection.cardIndex, Math.max(0, len - 1));
+	}
+
 	private selectedCardInReviewColumn(): KanbanTask | undefined {
 		if (COLUMNS[this.selection.column].status !== "review") return undefined;
-		return this.currentColumnTasks()[this.selection.cardIndex];
+		return this.currentColumnTasks()[this.clampedCardIndex()];
 	}
 
 	private selectedDeletableCard(): KanbanTask | undefined {
 		const status = COLUMNS[this.selection.column].status;
 		if (status !== "todo" && status !== "done") return undefined;
-		return this.currentColumnTasks()[this.selection.cardIndex];
+		return this.currentColumnTasks()[this.clampedCardIndex()];
 	}
 
 	private handleInputKey(data: string): void {
@@ -223,10 +232,11 @@ export class KanbanBoardComponent {
 			}
 			this.mode = { kind: "normal" };
 		} else if (matchesKey(data, "backspace") || data === "\x7f" || data === "\b") {
-			mode.buffer = mode.buffer.slice(0, -1);
+			// 按码点回删，避免把 emoji 等代理对拆成半个字符
+			mode.buffer = Array.from(mode.buffer).slice(0, -1).join("");
 		} else if (data.length > 0 && !/[\x00-\x1f\x7f]/.test(data)) {
 			mode.buffer += data;
 		}
-		this.deps.tui.requestRender();
+		this.invalidate();
 	}
 }
