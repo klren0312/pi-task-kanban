@@ -1,6 +1,14 @@
 # pi-task-kanban
 
-[pi](https://github.com/earendil-works/pi-mono) 看板扩展：终端内四列看板管理任务队列，pi 自主消费任务。
+[中文](#中文) | [English](#english)
+
+Kanban board extension for [pi](https://github.com/earendil-works/pi-mono).
+
+---
+
+## 中文
+
+终端内四列看板管理任务队列，pi 自主消费任务。
 
 ```
 待完成 → 进行中 → 待审核 → 已完成
@@ -11,7 +19,7 @@
 - 审核是闸门：有待审核任务时流水线暂停
 - 任务随会话持久化，重启 / fork 不丢
 
-## 安装
+### 安装
 
 ```bash
 # npm 包
@@ -24,7 +32,7 @@ pi install git:github.com/klren0312/pi-task-kanban
 pi -e /path/to/pi-task-kanban/src/index.ts
 ```
 
-## 使用
+### 使用
 
 | 命令 | 说明 |
 |------|------|
@@ -46,16 +54,75 @@ pi -e /path/to/pi-task-kanban/src/index.ts
 | `d` | 删除卡片（仅待完成/已完成） |
 | `q` / `Esc` | 关闭看板 |
 
-## 发布
+### 发布
 
 版本更新流程：修改 `package.json` 的 `version` → 提交 → 打 tag 推送：
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
-CI 自动跑检查、发布 npm 并创建 GitHub Release。npm 发布需要在仓库 Secrets 配置 `NPM_TOKEN`。
+CI 自动跑检查、通过 OIDC trusted publishing 发布 npm 并创建 GitHub Release（无需配置 token）。
+
+## English
+
+A four-column kanban board in your terminal that manages your task queue — pi consumes tasks autonomously.
+
+```
+Todo → In Progress → Review → Done
+```
+
+- Add tasks to "Todo"; pi picks them up automatically and works through them serially when idle
+- Finished tasks enter "Review" for human approval: approve, or reject with feedback (rejection sends pi back to work automatically)
+- Review is a gate: the pipeline pauses while any task awaits review
+- Tasks are persisted per session and survive restarts and forks
+
+### Install
+
+```bash
+# From npm
+pi install npm:pi-task-kanban
+
+# Or from git
+pi install git:github.com/klren0312/pi-task-kanban
+
+# Or load locally during development
+pi -e /path/to/pi-task-kanban/src/index.ts
+```
+
+### Usage
+
+| Command | Description |
+|---------|-------------|
+| `/kanban` | Open the board |
+| `/kanban add <title>` | Add a task to Todo |
+| `/kanban pause` / `resume` | Pause/resume auto-consumption |
+| `/kanban list` | Print a task summary into the conversation |
+
+Board keys:
+
+| Key | Action |
+|-----|--------|
+| `←` `→` / `h` `l` | Switch column |
+| `↑` `↓` | Select card |
+| `a` | Add task |
+| `A` | Approve (Review column) |
+| `R` | Reject with feedback (Review column) |
+| `p` | Pause/resume auto-consumption |
+| `d` | Delete card (Todo/Done only) |
+| `q` / `Esc` | Close board |
+
+### Releasing
+
+Bump `version` in `package.json`, commit, then push a tag:
+
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+CI runs checks, publishes to npm via OIDC trusted publishing (no token needed), and creates a GitHub Release.
 
 ## License
 
