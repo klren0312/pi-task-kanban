@@ -30,6 +30,7 @@ pi 的看板扩展（独立插件仓库）。终端四列看板：待完成 → 
 - `pi.sendUserMessage`（ExtensionAPI 上）是同步 void 函数，agent 流式运行期间不带 `deliverAs` 调用会直接 throw：发送前用 `ctx.isIdle()` 守卫；忙碌时用 `{ deliverAs: "followUp" }`；发送失败的 catch 里必须把任务回退到合法状态并持久化（参考 reject 的处理）。
 - 会话条目重放按 `entry.type === "custom"` 加 customType 过滤，entry.data 需要 `as` 类型断言——这是仓库里唯一允许断言的位置。
 - pi 进程中途被杀会残留 in_progress 任务：session_start 重放完成后统一把 in_progress 回退 todo 并持久化（崩溃恢复，见 index.ts replay）。
+- `agent_settled` 事件不带成功/失败载荷：API 报错收场（如上游断流）与正常完成触发同一事件，不能直接按 settled 转待审核。判定成败需从会话尾部回溯最后一条 assistant 消息读 `stopReason`（`error`/`aborted` 为失败），纯判定在 consumer.ts 的 `resolveSettledTarget`；失败任务按设计留在进行中（看板 r 键重试、重启走崩溃恢复自动重新发车）。
 
 ## 约定
 

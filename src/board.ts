@@ -38,6 +38,7 @@ export interface BoardCallbacks {
 	onAdd(title: string): void;
 	onApprove(id: string): void;
 	onReject(id: string, note: string): void;
+	onRetry(id: string): void;
 	onDelete(id: string): void;
 	onTogglePause(): void;
 	onClose(): void;
@@ -95,7 +96,7 @@ export function renderBoardLines(
 		const prompt = mode.purpose === "add" ? "新任务" : `驳回 #${mode.taskId} 意见`;
 		lines.push(truncateToWidth(` ${prompt}: ${mode.buffer}▌  (Enter 确认 / Esc 取消)`, width));
 	} else {
-		lines.push(truncateToWidth(" ←→列 ↑↓卡 a添加 A通过 R驳回 p暂停 d删除 q关闭", width));
+		lines.push(truncateToWidth(" ←→列 ↑↓卡 a添加 A通过 R驳回 r重试 p暂停 d删除 q关闭", width));
 	}
 	return lines;
 }
@@ -173,6 +174,9 @@ export class KanbanBoardComponent {
 		} else if (data === "R") {
 			const card = this.selectedCardInReviewColumn();
 			if (card) this.mode = { kind: "input", purpose: "reject", buffer: "", taskId: card.id };
+		} else if (data === "r") {
+			const card = this.selectedCardInProgressColumn();
+			if (card) this.deps.callbacks.onRetry(card.id);
 		} else if (data === "d") {
 			const card = this.selectedDeletableCard();
 			if (card) this.deps.callbacks.onDelete(card.id);
@@ -209,6 +213,11 @@ export class KanbanBoardComponent {
 
 	private selectedCardInReviewColumn(): KanbanTask | undefined {
 		if (COLUMNS[this.selection.column].status !== "review") return undefined;
+		return this.currentColumnTasks()[this.clampedCardIndex()];
+	}
+
+	private selectedCardInProgressColumn(): KanbanTask | undefined {
+		if (COLUMNS[this.selection.column].status !== "in_progress") return undefined;
 		return this.currentColumnTasks()[this.clampedCardIndex()];
 	}
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildRejectPrompt, buildTaskPrompt, findDispatchable } from "../src/consumer";
+import {
+	buildRejectPrompt,
+	buildTaskPrompt,
+	findDispatchable,
+	resolveSettledTarget,
+} from "../src/consumer";
 import { addTask, columnTasks, createEmptyState, transitionTask } from "../src/state";
 
 describe("findDispatchable", () => {
@@ -38,6 +43,23 @@ describe("findDispatchable", () => {
 	it("returns undefined when no todo tasks", () => {
 		const s = createEmptyState();
 		expect(findDispatchable(s)).toBeUndefined();
+	});
+});
+
+describe("resolveSettledTarget", () => {
+	it("keeps the task in progress when the round failed", () => {
+		expect(resolveSettledTarget("error")).toBeUndefined();
+		expect(resolveSettledTarget("aborted")).toBeUndefined();
+	});
+
+	it("moves to review on normal completion", () => {
+		expect(resolveSettledTarget("stop")).toBe("review");
+		expect(resolveSettledTarget("length")).toBe("review");
+		expect(resolveSettledTarget("toolUse")).toBe("review");
+	});
+
+	it("falls back to review when no assistant message exists", () => {
+		expect(resolveSettledTarget(undefined)).toBe("review");
 	});
 });
 

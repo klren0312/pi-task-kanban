@@ -122,6 +122,7 @@ function makeBoard(state: KanbanState, busy = false) {
 		onAdd: recorder<[string]>(),
 		onApprove: recorder<[string]>(),
 		onReject: recorder<[string, string]>(),
+		onRetry: recorder<[string]>(),
 		onDelete: recorder<[string]>(),
 		onTogglePause: recorder<[]>(),
 		onClose: recorder<[]>(),
@@ -136,6 +137,7 @@ function makeBoard(state: KanbanState, busy = false) {
 			onAdd: callbacks.onAdd.fn,
 			onApprove: callbacks.onApprove.fn,
 			onReject: callbacks.onReject.fn,
+			onRetry: callbacks.onRetry.fn,
 			onDelete: callbacks.onDelete.fn,
 			onTogglePause: callbacks.onTogglePause.fn,
 			onClose: callbacks.onClose.fn,
@@ -252,6 +254,19 @@ describe("KanbanBoardComponent", () => {
 		component.handleInput(KEY.backspace); // 空缓冲再删无副作用
 		component.handleInput(KEY.return);
 		expect(callbacks.onAdd.calls).toEqual([]); // 空标题不提交
+	});
+
+	it("retry only fires for cards in the in-progress column", () => {
+		const s = createEmptyState();
+		addTask(s, "待办", 1000);
+		const ip = addTask(s, "卡住", 2000);
+		transitionTask(s, ip.id, "in_progress", { now: 3000 });
+		const { component, callbacks } = makeBoard(s);
+		component.handleInput("r"); // 待完成列按 r：无效果
+		expect(callbacks.onRetry.calls).toEqual([]);
+		component.handleInput(KEY.right); // 进行中列
+		component.handleInput("r");
+		expect(callbacks.onRetry.calls).toEqual([[ip.id]]);
 	});
 
 	it("action keys respect column guards, p toggles pause, q closes", () => {

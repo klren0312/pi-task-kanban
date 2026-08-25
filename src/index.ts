@@ -8,7 +8,7 @@ import type { AutocompleteItem } from "@earendil-works/pi-tui";
 import { Text } from "@earendil-works/pi-tui";
 import type { BoardTheme } from "./board";
 import { KanbanBoardComponent, renderListLines } from "./board";
-import { buildRejectPrompt, buildTaskPrompt, findDispatchable } from "./consumer";
+import { buildRejectPrompt, buildTaskPrompt, findDispatchable, resolveSettledTarget } from "./consumer";
 import type { KanbanMetaEntryData, KanbanTask, KanbanTaskEntryData } from "./state";
 import {
 	addTask,
@@ -27,6 +27,23 @@ function toBoardTheme(theme: Theme): BoardTheme {
 		fg: (color, text) => theme.fg(color, text),
 		bold: (text) => theme.bold(text),
 	};
+}
+
+type SessionEntries = ReturnType<ExtensionContext["sessionManager"]["getEntries"]>;
+
+// agent_settled 事件不带结果载荷：从会话尾部找最后一轮 assistant 消息判断成败
+function lastAssistantRound(
+	entries: SessionEntries,
+): { stopReason: string | undefined; errorMessage: string | undefined } | undefined {
+	for (let i = entries.length - 1; i >= 0; i--) {
+		const entry = entries[i];
+		if (entry.type !== "message" || entry.message.role !== "assistant") continue;
+		return {
+			stopReason: entry.message.stopReason,
+			errorMessage: entry.message.errorMessage,
+		};
+	}
+	return undefined;
 }
 
 export default function (pi: ExtensionAPI) {
@@ -119,6 +136,26 @@ export default function (pi: ExtensionAPI) {
 		}
 	};
 
+	// 人工重试：错误收场后任务停留在进行中，r 键重新发车（不产生状态流转，无需持久化）
+	const retry = (id: string) => {
+		const ctx = lastCtx;
+		const task = state.tasks.get(id);
+		if (!task || task.status !== "in_progress") return;
+		if (!ctx?.isIdle()) {
+			ctx?.ui.notify("看板: agent 忙碌中，请稍后再试", "warning");
+			return;
+		}
+		activeTaskId = id;
+		try {
+			pi.sendUserMessage(buildTaskPrompt(task));
+			ctx.ui.notify(`看板: #${id} ${task.title} 已重新发车`, "info");
+		} catch {
+			activeTaskId = undefined;
+			ctx.ui.notify("看板: 重试消息发送失败，任务保留在进行中", "warning");
+		}
+		refreshBoard();
+	};
+
 	const addAndMaybeDispatch = (title: string) => {
 		const created = addTask(state, title, Date.now());
 		persistTask("add", created);
@@ -145,9 +182,10 @@ export default function (pi: ExtensionAPI) {
 					getState: () => state,
 					getBusy: () => activeTaskId !== undefined,
 					callbacks: {
-						onAdd: (title) => addAndMaybeDispatch(title),
-						onApprove: (id) => approve(id),
-						onReject: (id, note) => reject(id, note),
+					onAdd: (title) => addAndMaybeDispatch(title),
+					onApprove: (id) => approve(id),
+					onReject: (id, note) => reject(id, note),
+					onRetry: (id) => retry(id),
 						onDelete: (id) => {
 							const snapshot = allTasks(state).find((t) => t.id === id);
 							if (snapshot && deleteTask(state, id)) {
@@ -250,12 +288,24 @@ export default function (pi: ExtensionAPI) {
 		if (activeTaskId !== undefined) {
 			const finished = activeTaskId;
 			activeTaskId = undefined;
-			const moved = transitionTask(state, finished, "review", { now: Date.now() });
+			const round = lastAssistantRound(ctx.sessionManager.getEntries());
+			const target = resolveSettledTarget(round?.stopReason);
+			const moved = target
+				? transitionTask(state, finished, target, { now: Date.now() })
+				: undefined;
 			if (moved) {
 				persistTask("update", moved);
 				if (!board && ctx.hasUI) {
 					ctx.ui.notify(`看板: #${moved.id} ${moved.title} 待审核`, "info");
 				}
+			} else if (ctx.hasUI) {
+				// 本轮以 error/aborted 收场：任务留在进行中，等待人工重试或重启恢复
+				const stuck = state.tasks.get(finished);
+				const detail = round?.errorMessage ? `：${round.errorMessage}` : "";
+				ctx.ui.notify(
+					`看板: #${finished} ${stuck?.title ?? ""} 本轮执行失败，已保留在进行中（看板内选中后按 r 重试）${detail}`,
+					"warning",
+				);
 			}
 			refreshBoard();
 		}

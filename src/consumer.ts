@@ -9,6 +9,13 @@ export function findDispatchable(state: KanbanState): KanbanTask | undefined {
 	return columnTasks(state, "todo")[0];
 }
 
+// agent_settled 事件不携带结果载荷，需据最后一轮 assistant 消息的 stopReason 判定去向：
+// error/aborted 视为本轮失败，任务留在进行中等待人工重试；其余照常转待审核。
+export function resolveSettledTarget(stopReason: string | undefined): "review" | undefined {
+	if (stopReason === "error" || stopReason === "aborted") return undefined;
+	return "review";
+}
+
 export function buildTaskPrompt(task: KanbanTask): string {
 	return [
 		`[看板任务 #${task.id}] ${task.title}`,
