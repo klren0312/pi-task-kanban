@@ -51,18 +51,27 @@ describe("kanban state", () => {
 		expect(transitionTask(s, "999", "in_progress", { now: 2000 })).toBeUndefined();
 	});
 
-	it("reject with note increments rejects and stores note", () => {
+	it("reject back to todo increments rejects and stores note", () => {
 		const s = createEmptyState();
 		const t = addTask(s, "任务", 1000);
 		transitionTask(s, t.id, "in_progress", { now: 2000 });
 		transitionTask(s, t.id, "review", { now: 3000 });
-		const back = transitionTask(s, t.id, "in_progress", { note: "没写测试", now: 4000 });
+		const back = transitionTask(s, t.id, "todo", { note: "没写测试", now: 4000 });
+		expect(back?.status).toBe("todo");
 		expect(back?.rejects).toBe(1);
 		expect(back?.note).toBe("没写测试");
 		// 正常领取（无 note）不增加 rejects
-		transitionTask(s, t.id, "review", { now: 5000 });
-		const again = transitionTask(s, t.id, "in_progress", { now: 6000 });
+		const again = transitionTask(s, t.id, "in_progress", { now: 5000 });
 		expect(again?.rejects).toBe(1);
+	});
+
+	it("review can only go to done, not back to in_progress", () => {
+		const s = createEmptyState();
+		const t = addTask(s, "任务", 1000);
+		transitionTask(s, t.id, "in_progress", { now: 2000 });
+		transitionTask(s, t.id, "review", { now: 3000 });
+		expect(transitionTask(s, t.id, "in_progress", { now: 4000 })).toBeUndefined();
+		expect(transitionTask(s, t.id, "done", { now: 4000 })).toBeDefined();
 	});
 
 	it("deleteTask only allows todo and done", () => {

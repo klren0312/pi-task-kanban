@@ -40,13 +40,13 @@ describe("renderBoardLines", () => {
 		expect(renderBoardLines(s, { column: 0, cardIndex: 0 }, 80, false, stubTheme)[0]).toContain("已暂停");
 	});
 
-	it("renders reworked card in progress column", () => {
+	it("renders reworked card back in todo column", () => {
 		const s = createEmptyState();
 		const t = addTask(s, "返工任务", 1000);
 		transitionTask(s, t.id, "in_progress", { now: 2000 });
 		transitionTask(s, t.id, "review", { now: 3000 });
-		transitionTask(s, t.id, "in_progress", { note: "修一下", now: 4000 });
-		const lines = renderBoardLines(s, { column: 1, cardIndex: 0 }, 80, false, stubTheme);
+		transitionTask(s, t.id, "todo", { note: "修一下", now: 4000 });
+		const lines = renderBoardLines(s, { column: 0, cardIndex: 0 }, 80, false, stubTheme);
 		expect(lines.join("\n")).toContain("#1 返工任务");
 	});
 
@@ -75,12 +75,12 @@ describe("renderBoardLines", () => {
 describe("renderListLines", () => {
 	it("groups tasks by column with notes", () => {
 		const s = createEmptyState();
-		const a = addTask(s, "已审完", 1000);
+		const a = addTask(s, "被驳回", 1000);
 		transitionTask(s, a.id, "in_progress", { now: 2000 });
 		transitionTask(s, a.id, "review", { now: 3000 });
-		transitionTask(s, a.id, "in_progress", { note: "改文案", now: 4000 });
+		transitionTask(s, a.id, "todo", { note: "改文案", now: 4000 });
 		const text = renderListLines(allTasks(s), 120, stubTheme).join("\n");
-		expect(text).toContain("进行中 (1)");
+		expect(text).toContain("待完成 (1)");
 		expect(text).toContain("[驳回: 改文案]");
 	});
 

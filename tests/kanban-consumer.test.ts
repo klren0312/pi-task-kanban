@@ -93,9 +93,12 @@ it("full pipeline keeps serial order across rework", () => {
 	const b = addTask(s, "二", 2000);
 	transitionTask(s, a.id, "in_progress", { now: 3000 });
 	transitionTask(s, a.id, "review", { now: 4000 });
-	transitionTask(s, a.id, "in_progress", { note: "返工", now: 5000 });
-	transitionTask(s, a.id, "review", { now: 6000 });
-	transitionTask(s, a.id, "done", { now: 7000 });
+	// 驳回归队：a 回到待完成队首，b 不发车
+	transitionTask(s, a.id, "todo", { note: "返工", now: 5000 });
+	expect(findDispatchable(s)?.id).toBe(a.id);
+	transitionTask(s, a.id, "in_progress", { now: 6000 });
+	transitionTask(s, a.id, "review", { now: 7000 });
+	transitionTask(s, a.id, "done", { now: 8000 });
 	const next = findDispatchable(s);
 	expect(next?.id).toBe(b.id);
 	expect(columnTasks(s, "done").map((t) => t.id)).toEqual([a.id]);

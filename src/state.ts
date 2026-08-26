@@ -18,11 +18,12 @@ export const STATUS_LABEL: Record<TaskStatus, string> = {
 };
 
 // todo → in_progress：自动消费；in_progress → review：一轮结束；
-// review → done/in_progress：审核通过/驳回；in_progress → todo：崩溃恢复回退。
+// review → done/todo：审核通过/驳回归队（返工优先级见 consumer.findDispatchable）；
+// in_progress → todo：崩溃恢复回退。
 const ALLOWED_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 	todo: ["in_progress"],
 	in_progress: ["review", "todo"],
-	review: ["done", "in_progress"],
+	review: ["done", "todo"],
 	done: [],
 };
 
@@ -69,7 +70,7 @@ export function transitionTask(
 	if (!task) return undefined;
 	if (!ALLOWED_TRANSITIONS[task.status].includes(to)) return undefined;
 	task.status = to;
-	if (to === "in_progress" && options.note !== undefined) {
+	if (options.note !== undefined) {
 		task.rejects += 1;
 		task.note = options.note;
 	}
