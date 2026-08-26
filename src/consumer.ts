@@ -1,12 +1,14 @@
 import type { KanbanState, KanbanTask } from "./state";
 import { columnTasks } from "./state";
 
-// 发车条件：未暂停 && 无进行中 && 无待审核（人工审核是闸门），取队首待完成。
+// 发车条件：未暂停 && 无进行中（pi 单会话，同一时刻至多跑一个），待审核不阻塞发车。
+// 待完成列内返工任务（rejects>0）优先于普通任务，同组按入队顺序。
+// 注意：优先级必须是纯判定，不得移动 state.order——顺序不在任务快照里，移动会破坏重放一致性。
 export function findDispatchable(state: KanbanState): KanbanTask | undefined {
 	if (state.paused) return undefined;
 	if (columnTasks(state, "in_progress").length > 0) return undefined;
-	if (columnTasks(state, "review").length > 0) return undefined;
-	return columnTasks(state, "todo")[0];
+	const todos = columnTasks(state, "todo");
+	return todos.find((t) => t.rejects > 0) ?? todos[0];
 }
 
 // agent_settled 事件不携带结果载荷，需据最后一轮 assistant 消息的 stopReason 判定去向：

@@ -31,18 +31,41 @@ describe("findDispatchable", () => {
 		expect(findDispatchable(s)).toBeUndefined();
 	});
 
-	it("returns undefined when review gate blocks", () => {
+	it("dispatches next todo while another task awaits review", () => {
 		const s = createEmptyState();
 		const a = addTask(s, "一", 1000);
 		addTask(s, "二", 2000);
 		transitionTask(s, a.id, "in_progress", { now: 3000 });
 		transitionTask(s, a.id, "review", { now: 4000 });
-		expect(findDispatchable(s)).toBeUndefined();
+		expect(findDispatchable(s)?.title).toBe("二");
 	});
 
 	it("returns undefined when no todo tasks", () => {
 		const s = createEmptyState();
 		expect(findDispatchable(s)).toBeUndefined();
+	});
+
+	it("prefers reworked todo over plain queue head", () => {
+		const s = createEmptyState();
+		addTask(s, "一", 1000);
+		const b = addTask(s, "二", 2000);
+		addTask(s, "三", 2500);
+		transitionTask(s, b.id, "in_progress", { now: 3000 });
+		transitionTask(s, b.id, "review", { now: 4000 });
+		transitionTask(s, b.id, "todo", { note: "返工", now: 5000 });
+		expect(findDispatchable(s)?.id).toBe(b.id);
+	});
+
+	it("picks the earliest rework when several exist", () => {
+		const s = createEmptyState();
+		const a = addTask(s, "一", 1000);
+		const b = addTask(s, "二", 2000);
+		for (const t of [a, b]) {
+			transitionTask(s, t.id, "in_progress", { now: 3000 });
+			transitionTask(s, t.id, "review", { now: 4000 });
+			transitionTask(s, t.id, "todo", { note: "返工", now: 5000 });
+		}
+		expect(findDispatchable(s)?.id).toBe(a.id);
 	});
 });
 
@@ -93,9 +116,7 @@ it("full pipeline keeps serial order across rework", () => {
 	const b = addTask(s, "二", 2000);
 	transitionTask(s, a.id, "in_progress", { now: 3000 });
 	transitionTask(s, a.id, "review", { now: 4000 });
-	// 驳回归队：a 回到待完成队首，b 不发车
 	transitionTask(s, a.id, "todo", { note: "返工", now: 5000 });
-	expect(findDispatchable(s)?.id).toBe(a.id);
 	transitionTask(s, a.id, "in_progress", { now: 6000 });
 	transitionTask(s, a.id, "review", { now: 7000 });
 	transitionTask(s, a.id, "done", { now: 8000 });
