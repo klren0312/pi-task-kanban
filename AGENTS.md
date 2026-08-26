@@ -21,7 +21,7 @@ pi 的看板扩展（独立插件仓库）。终端四列看板：待完成 → 
 改动前先确认三条不变量：
 
 1. **事件溯源一致性**：每个任务变更必须同时做两件事——经 state.ts 的增删改函数更新内存态，且 `persistTask` 追加一条含全量快照的会话条目。`replayTaskEntry` 必须能从条目流单独复原全部状态：给 KanbanTask 加字段时快照自动携带，但重放逻辑若有分支需同步。
-2. **串行流水线**：同一时刻至多一个进行中任务；「待审核」列非空时禁止发车。发车判定的唯一入口是 findDispatchable。`activeTaskId` 标记的正确性依赖 agent_settled 语义（重试、压缩、followUp 全部结束才触发）。
+2. **串行流水线**：同一时刻至多一个进行中任务；「待审核」不阻塞发车，人工审核与消费循环解耦。驳回走 review→todo 回队，返工优先由 findDispatchable 纯判定实现（勿移动 order 数组——顺序不在任务快照里）。发车判定的唯一入口是 findDispatchable。`activeTaskId` 标记的正确性依赖 agent_settled 语义（重试、压缩、followUp 全部结束才触发）。
 3. **状态流转走白名单**：一切状态变更经 `ALLOWED_TRANSITIONS` 校验；新增流转边时同步更新 pi 主仓库的设计文档（`docs/superpowers/specs/2026-08-24-kanban-extension-design.md`，跨仓库路径）。
 
 ## 平台陷阱（踩过的坑，勿重蹈）
