@@ -95,7 +95,7 @@ export default function (pi: ExtensionAPI) {
 		activeTaskId = started.id;
 		refreshBoard();
 		try {
-			pi.sendUserMessage(buildTaskPrompt(started));
+			pi.sendUserMessage(started.rejects > 0 ? buildRejectPrompt(started) : buildTaskPrompt(started));
 		} catch {
 			activeTaskId = undefined;
 			const reverted = transitionTask(state, started.id, "todo", { now: Date.now() });
@@ -115,25 +115,13 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	const reject = (id: string, note: string) => {
-		const ctx = lastCtx;
-		const updated = transitionTask(state, id, "in_progress", { note, now: Date.now() });
-		if (!updated) return;
-		persistTask("update", updated);
-		activeTaskId = id;
+		// 审核解勾：驳回回待完成队列，返工统一走消费循环，不直接注入消息
+		const queued = transitionTask(state, id, "todo", { note, now: Date.now() });
+		if (!queued) return;
+		persistTask("update", queued);
+		lastCtx?.ui.notify(`看板: #${id} 已驳回，回到待完成（返工优先）`, "info");
 		refreshBoard();
-		try {
-			if (ctx?.isIdle()) {
-				pi.sendUserMessage(buildRejectPrompt(updated));
-			} else {
-				pi.sendUserMessage(buildRejectPrompt(updated), { deliverAs: "followUp" });
-			}
-		} catch {
-			activeTaskId = undefined;
-			const reverted = transitionTask(state, updated.id, "review", { now: Date.now() });
-			if (reverted) persistTask("update", reverted);
-			ctx?.ui.notify("看板: 返工消息发送失败，任务已退回待审核", "warning");
-			refreshBoard();
-		}
+		tryDispatch();
 	};
 
 	// 人工重试：错误收场后任务停留在进行中，r 键重新发车（不产生状态流转，无需持久化）
